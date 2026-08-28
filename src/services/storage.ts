@@ -79,14 +79,22 @@ export async function fetchCloudRegistrations(): Promise<{ success: boolean; dat
     }
 
     const json = await response.json();
+    let rawList: any[] = [];
     if (json && Array.isArray(json.data)) {
-      // Save fresh data into local cache
-      setLocalRegistrations(json.data);
-      return { success: true, data: json.data };
+      rawList = json.data;
     } else if (Array.isArray(json)) {
-      setLocalRegistrations(json);
-      return { success: true, data: json };
+      rawList = json;
     }
+
+    // กรองเฉพาะแถวที่มีรายชื่อจริง (ตัดแถวว่าง/ขยะออก)
+    const validRecords: RegistrationRecord[] = rawList.filter((item: any) => {
+      if (!item) return false;
+      const hasNames = Array.isArray(item.names) && item.names.length > 0 && item.names.some((n: string) => n && n.trim().length > 0);
+      return hasNames && item.thaiDateFormatted && item.thaiDateFormatted.trim().length > 0;
+    });
+
+    setLocalRegistrations(validRecords);
+    return { success: true, data: validRecords };
 
     return { success: false, data: getLocalRegistrations(), error: 'รูปแบบข้อมูลไม่ถูกต้อง' };
   } catch (err: any) {
