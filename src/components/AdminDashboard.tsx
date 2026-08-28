@@ -266,11 +266,6 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                               {nIdx + 1}.
                             </span>
                             {name}
-                            {nIdx === 0 && (
-                              <span className="text-[9px] bg-blue-200/60 text-blue-900 px-1 rounded">
-                                หลัก
-                              </span>
-                            )}
                           </span>
                         ))}
                       </div>

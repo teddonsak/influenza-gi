@@ -129,7 +129,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
             <label className="flex items-center justify-between text-sm font-semibold text-slate-700 mb-1.5">
               <span className="flex items-center gap-1.5">
                 <span className="w-5 h-5 rounded-full bg-blue-600 text-white text-xs flex items-center justify-center font-bold">1</span>
-                ชื่อคนที่ 1 (ผู้ติดต่อหลัก)
+                ชื่อคนที่ 1
               </span>
               <span className="text-xs bg-rose-50 text-rose-600 border border-rose-200 px-2 py-0.5 rounded-full font-medium">
                 * บังคับกรอก (Required)
@@ -143,7 +143,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
                 type="text"
                 value={formData.person1}
                 onChange={(e) => handleChange('person1', e.target.value)}
-                placeholder="เช่น นายสมชาย มุ่งมั่นดี (แผนก IT)"
+                placeholder="เช่น นายสมชาย มุ่งมั่นดี"
                 className={`w-full pl-11 pr-4 py-3.5 rounded-2xl border transition-all text-slate-800 placeholder-slate-400 font-medium ${
                   error
                     ? 'border-rose-400 ring-2 ring-rose-100 bg-rose-50/20 focus:border-rose-500'
@@ -173,7 +173,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
                 type="text"
                 value={formData.person2}
                 onChange={(e) => handleChange('person2', e.target.value)}
-                placeholder="เช่น นางสมหญิง มุ่งมั่นดี (คู่สมรส / ครอบครัว)"
+                placeholder="เช่น นางสมหญิง มุ่งมั่นดี"
                 className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 bg-slate-50/40 focus:bg-white transition-all text-slate-800 placeholder-slate-400 font-medium"
               />
             </div>
@@ -198,7 +198,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
                 type="text"
                 value={formData.person3}
                 onChange={(e) => handleChange('person3', e.target.value)}
-                placeholder="เช่น ด.ช. กิตติ มุ่งมั่นดี (บุตร)"
+                placeholder="เช่น ด.ช. กิตติ มุ่งมั่นดี"
                 className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 bg-slate-50/40 focus:bg-white transition-all text-slate-800 placeholder-slate-400 font-medium"
               />
             </div>
@@ -223,7 +223,7 @@ export const RegistrationForm: React.FC<RegistrationFormProps> = ({
                 type="text"
                 value={formData.person4}
                 onChange={(e) => handleChange('person4', e.target.value)}
-                placeholder="เช่น นายประเสริฐ มุ่งมั่นดี (บิดา/มารดา/เพื่อนร่วมงาน)"
+                placeholder="เช่น นายประเสริฐ มุ่งมั่นดี"
                 className="w-full pl-11 pr-4 py-3.5 rounded-2xl border border-slate-300 focus:border-blue-500 focus:ring-4 focus:ring-blue-100 bg-slate-50/40 focus:bg-white transition-all text-slate-800 placeholder-slate-400 font-medium"
               />
             </div>

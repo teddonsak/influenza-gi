@@ -86,7 +86,7 @@ export function seedSampleData(): RegistrationRecord[] {
   const sampleItems: RegistrationRecord[] = [
     {
       id: 'GI-2569-8801',
-      names: ['สมชาย มุ่งมั่นดี', 'สมหญิง มุ่งมั่นดี (คู่สมรส)'],
+      names: ['สมชาย มุ่งมั่นดี', 'สมหญิง มุ่งมั่นดี'],
       personCount: 2,
       pricePerDose: PRICE_PER_DOSE,
       totalPrice: 2 * PRICE_PER_DOSE,
