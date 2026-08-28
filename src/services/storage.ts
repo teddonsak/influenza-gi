@@ -3,8 +3,8 @@ import { RegistrationRecord, PRICE_PER_DOSE } from '../types/registration';
 const STORAGE_KEY = 'influenza_gi_registrations_v1';
 const API_URL_KEY = 'influenza_gi_api_url_v1';
 
-// Default / fallback API URL (can be set by admin in settings)
-export const DEFAULT_API_URL = '';
+// Default Google Apps Script Web App URL for Google Sheets cloud sync
+export const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxTMejQQx9ajUn5U-7-JmfvQZ_gZhmi7_yJo4h8vb4j-1aTJ5U4SzV6YUeaWrPFXLbfFQ/exec';
 
 export function getApiUrl(): string {
   try {
