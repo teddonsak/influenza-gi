@@ -10,7 +10,7 @@ export const Footer: React.FC = () => {
           
           <div className="flex items-center gap-2">
             <span className="font-semibold text-slate-700">{COMPANY_NAME}</span>
-            <span>• สวัสดิการสุขภาพพนักงาน ประจำปี 2569</span>
+            <span>• By.หนุ่มทะเลใต้</span>
           </div>
 
           <div className="flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500">
