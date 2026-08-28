@@ -49,13 +49,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     // Load existing records from LocalStorage
     const stored = getRegistrations();
-    // If first time visit, optionally seed with sample data so table is ready to test
-    if (stored.length === 0) {
-      const seeded = seedSampleData();
-      setRegistrations(seeded);
-    } else {
-      setRegistrations(stored);
-    }
+    setRegistrations(stored);
 
     // Check initial URL pathname or hash
     const path = window.location.pathname.toLowerCase();

@@ -75,7 +75,7 @@ export function deleteRegistration(id: string): RegistrationRecord[] {
 
 export function clearAllRegistrations(): void {
   try {
-    localStorage.removeItem(STORAGE_KEY);
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
   } catch (error) {
     console.error('Failed to clear registrations from localStorage', error);
   }
