@@ -179,13 +179,13 @@ export const App: React.FC = () => {
   };
 
   // Admin Handlers
-  const handleDeleteRecord = (id: string) => {
-    const updated = deleteRegistration(id);
+  const handleDeleteRecord = async (id: string) => {
+    const updated = await deleteRegistration(id);
     setRegistrations(updated);
   };
 
-  const handleClearAll = () => {
-    clearAllRegistrations();
+  const handleClearAll = async () => {
+    await clearAllRegistrations();
     setRegistrations([]);
   };
 

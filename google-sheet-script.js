@@ -4,19 +4,7 @@
  * บริษัทโกลบอลอินเตอร์ จำกัด (Global Inter Co., Ltd.)
  * =========================================================================
  * 
- * วิธีติดตั้งใน Google Sheets:
- * 1. เปิด Google Sheets เปล่า (สร้างใหม่ที่ sheets.new)
- * 2. ไปที่เมนู ส่วนขยาย (Extensions) > Apps Script
- * 3. ลบโค้ดเดิมทั้งหมดออก แล้ววางโค้ดทั้งหมดนี้ลงไป
- * 4. กดปุ่ม "บันทึก" (รูปแผ่นดิสก์)
- * 5. กดปุ่มสีน้ำเงินมุมขวาบน "การทำให้ใช้งานได้" (Deploy) > "การทำให้ใช้งานได้รายการใหม่" (New deployment)
- * 6. เลือกประเภทเป็น "เว็บแอป" (Web app)
- *    - คำอธิบาย: influenza-gi API
- *    - ดำเนินการในฐานะ: ตัวฉัน (Me)
- *    - ผู้มีสิทธิ์เข้าถึง: ทุกคน (Anyone)  <--- สำคัญมาก! ต้องเลือก Anyone
- * 7. กดปุ่ม "ทำให้ใช้งานได้" (Deploy) แล้วให้สิทธิ์การเข้าถึง (Authorize access)
- * 8. คัดลอก "URL ของเว็บแอป" (ขึ้นต้นด้วย https://script.google.com/macros/s/.../exec)
- *    นำไปวางในหน้า Admin ของเว็บแอป influenza-gi
+ * รองรับ: บันทึกข้อมูล / ดึงข้อมูลแบบเรียลไทม์ / ลบรายรายการ / ล้างตาราง
  * =========================================================================
  */
 
@@ -54,10 +42,9 @@ function setupSheetIfNeeded(ss) {
   return sheet;
 }
 
-// ฟังก์ชันสำหรับทดสอบรัน
 function testRun() {
   const sheet = setupSheetIfNeeded();
-  Logger.log("สร้าง/ตรวจสอบตารางสำเร็จ: " + (sheet ? sheet.getName() : ""));
+  Logger.log("ตารางพร้อมใช้งาน: " + (sheet ? sheet.getName() : ""));
 }
 
 // GET: ดึงข้อมูลการลงทะเบียนทั้งหมดไปแสดงที่หน้า Admin
@@ -72,7 +59,12 @@ function doGet(e) {
     }
     
     const rows = data.slice(1);
-    const records = rows.map((row, idx) => {
+    const records = [];
+
+    rows.forEach((row, idx) => {
+      // ข้ามแถวที่ว่าง
+      if (!row[0] && !row[1] && !row[2]) return;
+
       const namesList = [];
       for (let i = 3; i <= 7; i++) {
         if (row[i] && String(row[i]).trim() !== "" && String(row[i]).trim() !== "-") {
@@ -83,16 +75,18 @@ function doGet(e) {
         namesList.push(...String(row[2]).split(",").map(s => s.trim()).filter(s => s.length > 0));
       }
 
-      return {
-        id: row[0] || `GI-2569-${idx + 1}`,
-        thaiDateFormatted: row[1] || "",
+      records.push({
+        id: String(row[0]) || `GI-2569-${idx + 1}`,
+        thaiDateFormatted: String(row[1]) || "",
         names: namesList,
         personCount: Number(row[8]) || namesList.length || 1,
         pricePerDose: Number(row[9]) || 390,
         totalPrice: Number(row[10]) || (namesList.length * 390),
-        createdAt: row[11] || new Date().toISOString()
-      };
-    }).reverse(); // เอาล่าสุดขึ้นก่อน
+        createdAt: String(row[11]) || new Date().toISOString()
+      });
+    });
+
+    records.reverse(); // เอาล่าสุดขึ้นก่อน
 
     return createJsonResponse({ status: "success", data: records });
   } catch (err) {
@@ -100,7 +94,7 @@ function doGet(e) {
   }
 }
 
-// POST: บันทึกข้อมูลการลงทะเบียนใหม่เมื่อมีคนกดส่งฟอร์ม
+// POST: บันทึกใหม่ / ลบรายการ / ล้างทั้งหมด
 function doPost(e) {
   try {
     const sheet = setupSheetIfNeeded();
@@ -113,6 +107,32 @@ function doPost(e) {
       body = e.parameter;
     }
 
+    // 1. จัดการคำสั่งลบรายรายการ (Action: delete)
+    if (body.action === 'delete' && body.id) {
+      const targetId = String(body.id).trim();
+      const data = sheet.getDataRange().getValues();
+      let deleted = false;
+      
+      for (let i = 1; i < data.length; i++) {
+        if (String(data[i][0]).trim() === targetId) {
+          sheet.deleteRow(i + 1); // Row index is 1-based
+          deleted = true;
+          break;
+        }
+      }
+      return createJsonResponse({ status: "success", message: deleted ? "Deleted row from sheet" : "Row not found" });
+    }
+
+    // 2. จัดการคำสั่งล้างทั้งหมด (Action: clear_all)
+    if (body.action === 'clear_all') {
+      const lastRow = sheet.getLastRow();
+      if (lastRow > 1) {
+        sheet.deleteRows(2, lastRow - 1);
+      }
+      return createJsonResponse({ status: "success", message: "All rows cleared" });
+    }
+
+    // 3. บันทึกข้อมูลการลงทะเบียนใหม่
     const id = body.id || `GI-2569-${new Date().getTime()}`;
     const thaiDate = body.thaiDateFormatted || "";
     const names = Array.isArray(body.names) ? body.names : [];
@@ -121,7 +141,6 @@ function doPost(e) {
     const totalPrice = Number(body.totalPrice) || (personCount * pricePerDose);
     const createdAt = body.createdAt || new Date().toISOString();
 
-    // บันทึกแถวใหม่ลง Google Sheet
     sheet.appendRow([
       id,
       thaiDate,

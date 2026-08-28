@@ -124,12 +124,11 @@ export async function saveRegistration(names: string[]): Promise<RegistrationRec
   const apiUrl = getApiUrl();
   if (apiUrl) {
     try {
-      // Use standard fetch or no-cors for Google Apps Script
       fetch(apiUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'text/plain;charset=utf-8' },
         body: JSON.stringify(newRecord),
-        mode: 'no-cors', // Google Apps Script redirects require no-cors or standard text
+        mode: 'no-cors',
       }).catch(e => console.warn('Background cloud post warning:', e));
     } catch (e) {
       console.warn('Cloud post error:', e);
@@ -139,15 +138,44 @@ export async function saveRegistration(names: string[]): Promise<RegistrationRec
   return newRecord;
 }
 
-export function deleteRegistration(id: string): RegistrationRecord[] {
+export async function deleteRegistration(id: string): Promise<RegistrationRecord[]> {
   const existing = getLocalRegistrations();
   const filtered = existing.filter(item => item.id !== id);
   setLocalRegistrations(filtered);
+
+  const apiUrl = getApiUrl();
+  if (apiUrl) {
+    try {
+      fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'delete', id: id }),
+        mode: 'no-cors',
+      }).catch(e => console.warn('Background cloud delete warning:', e));
+    } catch (e) {
+      console.warn('Cloud delete error:', e);
+    }
+  }
+
   return filtered;
 }
 
-export function clearAllRegistrations(): void {
+export async function clearAllRegistrations(): Promise<void> {
   setLocalRegistrations([]);
+
+  const apiUrl = getApiUrl();
+  if (apiUrl) {
+    try {
+      fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify({ action: 'clear_all' }),
+        mode: 'no-cors',
+      }).catch(e => console.warn('Background cloud clear warning:', e));
+    } catch (e) {
+      console.warn('Cloud clear error:', e);
+    }
+  }
 }
 
 export function seedSampleData(): RegistrationRecord[] {
