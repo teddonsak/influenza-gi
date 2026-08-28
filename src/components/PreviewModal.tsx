@@ -71,11 +71,6 @@ export const PreviewModal: React.FC<PreviewModalProps> = ({
                     <span className="font-semibold text-slate-800 text-sm sm:text-base">
                       {name}
                     </span>
-                    {index === 0 && (
-                      <span className="ml-2 text-xs bg-blue-100/80 text-blue-800 px-2 py-0.5 rounded-md font-semibold">
-                        ผู้ติดต่อหลัก
-                      </span>
-                    )}
                   </div>
                 </div>
                 <div className="text-xs text-slate-500 font-medium hidden sm:block">

@@ -1,18 +1,17 @@
 import React, { useEffect } from 'react';
 import confetti from 'canvas-confetti';
-import { CheckCircle2, RotateCw, Receipt, Sparkles, ExternalLink } from 'lucide-react';
+import { CheckCircle2, RotateCw, Receipt, Sparkles } from 'lucide-react';
 import { RegistrationRecord } from '../types/registration';
 
 interface SuccessScreenProps {
   lastRecord: RegistrationRecord | null;
   onReset: () => void;
-  onGoToAdmin: () => void;
+  onGoToAdmin?: () => void;
 }
 
 export const SuccessScreen: React.FC<SuccessScreenProps> = ({
   lastRecord,
   onReset,
-  onGoToAdmin,
 }) => {
   useEffect(() => {
     // Fire confetti celebration
@@ -88,7 +87,7 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs sm:text-sm">
               <div>
-                <span className="text-slate-500 block">ผู้ลงทะเบียนหลัก</span>
+                <span className="text-slate-500 block">ผู้ลงทะเบียน</span>
                 <span className="font-semibold text-slate-800 text-sm sm:text-base">{lastRecord.names[0]}</span>
               </div>
               <div>
@@ -128,23 +127,14 @@ export const SuccessScreen: React.FC<SuccessScreenProps> = ({
         )}
 
         {/* Action Button: Reset & Add More */}
-        <div className="mt-8 flex flex-col sm:flex-row gap-3">
+        <div className="mt-8">
           <button
             type="button"
             onClick={onReset}
-            className="w-full sm:w-2/3 py-4 px-6 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white font-extrabold text-base sm:text-lg flex items-center justify-center gap-2.5 shadow-xl shadow-blue-600/25 hover:shadow-blue-600/35 active:scale-[0.99] transition-all cursor-pointer"
+            className="w-full py-4 px-6 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-teal-600 hover:from-blue-700 hover:to-teal-700 text-white font-extrabold text-base sm:text-lg flex items-center justify-center gap-2.5 shadow-xl shadow-blue-600/25 hover:shadow-blue-600/35 active:scale-[0.99] transition-all cursor-pointer"
           >
             <RotateCw className="w-5 h-5" />
             <span>มีคนอยากโดนจิ้มเพิ่ม กดตรงนี้จ้า 🔄</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={onGoToAdmin}
-            className="w-full sm:w-1/3 py-4 px-4 rounded-2xl border-2 border-slate-200 hover:border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-sm sm:text-base flex items-center justify-center gap-1.5 transition-all cursor-pointer shadow-xs active:scale-[0.99]"
-          >
-            <span>ดูรายการที่แอดมิน</span>
-            <ExternalLink className="w-4 h-4 text-slate-400" />
           </button>
         </div>
 
