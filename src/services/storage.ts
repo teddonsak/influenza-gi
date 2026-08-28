@@ -2,6 +2,7 @@ import { RegistrationRecord, PRICE_PER_DOSE } from '../types/registration';
 
 const STORAGE_KEY = 'influenza_gi_registrations_v1';
 const API_URL_KEY = 'influenza_gi_api_url_v1';
+const DELETED_IDS_KEY = 'influenza_gi_deleted_ids_v1';
 
 // Default Google Apps Script Web App URL for Google Sheets cloud sync
 export const DEFAULT_API_URL = 'https://script.google.com/macros/s/AKfycbxTMejQQx9ajUn5U-7-JmfvQZ_gZhmi7_yJo4h8vb4j-1aTJ5U4SzV6YUeaWrPFXLbfFQ/exec';
@@ -19,6 +20,35 @@ export function setApiUrl(url: string): void {
     localStorage.setItem(API_URL_KEY, url.trim());
   } catch (error) {
     console.error('Failed to set API URL in localStorage', error);
+  }
+}
+
+export function getDeletedIds(): Set<string> {
+  try {
+    const raw = localStorage.getItem(DELETED_IDS_KEY);
+    return new Set(raw ? JSON.parse(raw) : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function addDeletedId(id: string): void {
+  try {
+    const set = getDeletedIds();
+    set.add(String(id).trim());
+    localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(Array.from(set)));
+  } catch (e) {
+    console.error('Failed to add deleted ID', e);
+  }
+}
+
+export function addMultipleDeletedIds(ids: string[]): void {
+  try {
+    const set = getDeletedIds();
+    ids.forEach(id => set.add(String(id).trim()));
+    localStorage.setItem(DELETED_IDS_KEY, JSON.stringify(Array.from(set)));
+  } catch (e) {
+    console.error('Failed to add multiple deleted IDs', e);
   }
 }
 
@@ -43,7 +73,9 @@ export function getLocalRegistrations(): RegistrationRecord[] {
   try {
     const rawData = localStorage.getItem(STORAGE_KEY);
     if (!rawData) return [];
-    return JSON.parse(rawData);
+    const list: RegistrationRecord[] = JSON.parse(rawData);
+    const deletedIds = getDeletedIds();
+    return list.filter(item => item && item.id && !deletedIds.has(String(item.id).trim()));
   } catch (error) {
     console.error('Failed to parse registrations from localStorage', error);
     return [];
@@ -52,7 +84,9 @@ export function getLocalRegistrations(): RegistrationRecord[] {
 
 export function setLocalRegistrations(records: RegistrationRecord[]): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+    const deletedIds = getDeletedIds();
+    const filtered = records.filter(item => item && item.id && !deletedIds.has(String(item.id).trim()));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
   } catch (error) {
     console.error('Failed to save to localStorage', error);
   }
@@ -86,17 +120,19 @@ export async function fetchCloudRegistrations(): Promise<{ success: boolean; dat
       rawList = json;
     }
 
-    // กรองเฉพาะแถวที่มีรายชื่อจริง (ตัดแถวว่าง/ขยะออก)
+    const deletedIds = getDeletedIds();
+
+    // กรองเฉพาะแถวที่สมบูรณ์ และตัดแถวที่ถูกสั่งลบออกอย่างถาวร
     const validRecords: RegistrationRecord[] = rawList.filter((item: any) => {
-      if (!item) return false;
+      if (!item || !item.id) return false;
+      if (deletedIds.has(String(item.id).trim())) return false; // ข้ามรายการที่เคยลบไปแล้ว
+
       const hasNames = Array.isArray(item.names) && item.names.length > 0 && item.names.some((n: string) => n && n.trim().length > 0);
       return hasNames && item.thaiDateFormatted && item.thaiDateFormatted.trim().length > 0;
     });
 
     setLocalRegistrations(validRecords);
     return { success: true, data: validRecords };
-
-    return { success: false, data: getLocalRegistrations(), error: 'รูปแบบข้อมูลไม่ถูกต้อง' };
   } catch (err: any) {
     console.warn('Cloud fetch warning (using local cache):', err.message);
     return { success: false, data: getLocalRegistrations(), error: err.message || 'ไม่สามารถเชื่อมต่อ Cloud ได้' };
@@ -147,8 +183,11 @@ export async function saveRegistration(names: string[]): Promise<RegistrationRec
 }
 
 export async function deleteRegistration(id: string): Promise<RegistrationRecord[]> {
+  // บันทึก ID ลง Blacklist เพื่อไม่ให้ Cloud ส่งกลับมาแสดงอีก
+  addDeletedId(id);
+
   const existing = getLocalRegistrations();
-  const filtered = existing.filter(item => item.id !== id);
+  const filtered = existing.filter(item => String(item.id).trim() !== String(id).trim());
   setLocalRegistrations(filtered);
 
   const apiUrl = getApiUrl();
@@ -169,6 +208,10 @@ export async function deleteRegistration(id: string): Promise<RegistrationRecord
 }
 
 export async function clearAllRegistrations(): Promise<void> {
+  const current = getLocalRegistrations();
+  const currentIds = current.map(item => String(item.id).trim());
+  addMultipleDeletedIds(currentIds);
+
   setLocalRegistrations([]);
 
   const apiUrl = getApiUrl();
