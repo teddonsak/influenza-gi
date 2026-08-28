@@ -1,6 +1,26 @@
 import { RegistrationRecord, PRICE_PER_DOSE } from '../types/registration';
 
 const STORAGE_KEY = 'influenza_gi_registrations_v1';
+const API_URL_KEY = 'influenza_gi_api_url_v1';
+
+// Default / fallback API URL (can be set by admin in settings)
+export const DEFAULT_API_URL = '';
+
+export function getApiUrl(): string {
+  try {
+    return localStorage.getItem(API_URL_KEY) || DEFAULT_API_URL;
+  } catch {
+    return DEFAULT_API_URL;
+  }
+}
+
+export function setApiUrl(url: string): void {
+  try {
+    localStorage.setItem(API_URL_KEY, url.trim());
+  } catch (error) {
+    console.error('Failed to set API URL in localStorage', error);
+  }
+}
 
 export function formatThaiDateTime(dateInput: Date | string): string {
   const date = typeof dateInput === 'string' ? new Date(dateInput) : dateInput;
@@ -19,13 +39,10 @@ export function formatThaiDateTime(dateInput: Date | string): string {
   return `${day} ${month} ${year} เวลา ${hours}:${minutes} น.`;
 }
 
-export function getRegistrations(): RegistrationRecord[] {
+export function getLocalRegistrations(): RegistrationRecord[] {
   try {
     const rawData = localStorage.getItem(STORAGE_KEY);
-    if (!rawData) {
-      // Return empty array initially, or initial mock data if desired
-      return [];
-    }
+    if (!rawData) return [];
     return JSON.parse(rawData);
   } catch (error) {
     console.error('Failed to parse registrations from localStorage', error);
@@ -33,7 +50,55 @@ export function getRegistrations(): RegistrationRecord[] {
   }
 }
 
-export function saveRegistration(names: string[]): RegistrationRecord {
+export function setLocalRegistrations(records: RegistrationRecord[]): void {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  } catch (error) {
+    console.error('Failed to save to localStorage', error);
+  }
+}
+
+/**
+ * Fetch registrations from Cloud API (Google Sheet / Backend)
+ * If successful, syncs and caches into LocalStorage
+ */
+export async function fetchCloudRegistrations(): Promise<{ success: boolean; data: RegistrationRecord[]; error?: string }> {
+  const apiUrl = getApiUrl();
+  if (!apiUrl) {
+    return { success: false, data: getLocalRegistrations(), error: 'ยังไม่ได้ตั้งค่า URL ฐานข้อมูลออนไลน์' };
+  }
+
+  try {
+    const response = await fetch(apiUrl, {
+      method: 'GET',
+      headers: { 'Accept': 'application/json' },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error ${response.status}`);
+    }
+
+    const json = await response.json();
+    if (json && Array.isArray(json.data)) {
+      // Save fresh data into local cache
+      setLocalRegistrations(json.data);
+      return { success: true, data: json.data };
+    } else if (Array.isArray(json)) {
+      setLocalRegistrations(json);
+      return { success: true, data: json };
+    }
+
+    return { success: false, data: getLocalRegistrations(), error: 'รูปแบบข้อมูลไม่ถูกต้อง' };
+  } catch (err: any) {
+    console.warn('Cloud fetch warning (using local cache):', err.message);
+    return { success: false, data: getLocalRegistrations(), error: err.message || 'ไม่สามารถเชื่อมต่อ Cloud ได้' };
+  }
+}
+
+/**
+ * Save new registration to both LocalStorage and Cloud API
+ */
+export async function saveRegistration(names: string[]): Promise<RegistrationRecord> {
   const validNames = names.map(n => n.trim()).filter(n => n.length > 0);
   const now = new Date();
   
@@ -50,35 +115,39 @@ export function saveRegistration(names: string[]): RegistrationRecord {
     thaiDateFormatted: formatThaiDateTime(now),
   };
 
-  const existing = getRegistrations();
+  // 1. Save to Local Cache first
+  const existing = getLocalRegistrations();
   const updated = [newRecord, ...existing];
-  
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(updated));
-  } catch (error) {
-    console.error('Failed to save registration to localStorage', error);
+  setLocalRegistrations(updated);
+
+  // 2. Send to Cloud API (Google Sheet / Webhook) in background
+  const apiUrl = getApiUrl();
+  if (apiUrl) {
+    try {
+      // Use standard fetch or no-cors for Google Apps Script
+      fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+        body: JSON.stringify(newRecord),
+        mode: 'no-cors', // Google Apps Script redirects require no-cors or standard text
+      }).catch(e => console.warn('Background cloud post warning:', e));
+    } catch (e) {
+      console.warn('Cloud post error:', e);
+    }
   }
 
   return newRecord;
 }
 
 export function deleteRegistration(id: string): RegistrationRecord[] {
-  const existing = getRegistrations();
+  const existing = getLocalRegistrations();
   const filtered = existing.filter(item => item.id !== id);
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(filtered));
-  } catch (error) {
-    console.error('Failed to update localStorage', error);
-  }
+  setLocalRegistrations(filtered);
   return filtered;
 }
 
 export function clearAllRegistrations(): void {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify([]));
-  } catch (error) {
-    console.error('Failed to clear registrations from localStorage', error);
-  }
+  setLocalRegistrations([]);
 }
 
 export function seedSampleData(): RegistrationRecord[] {
@@ -113,6 +182,6 @@ export function seedSampleData(): RegistrationRecord[] {
     }
   ];
 
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(sampleItems));
+  setLocalRegistrations(sampleItems);
   return sampleItems;
 }
