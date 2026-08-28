@@ -17,11 +17,96 @@ import {
   Settings,
   X,
   ExternalLink,
-  CheckCircle2
+  CheckCircle2,
+  Copy,
+  Check
 } from 'lucide-react';
 import { RegistrationRecord, PRICE_PER_DOSE, COMPANY_NAME } from '../types/registration';
 import { exportRegistrationsToExcel } from '../services/excelExport';
 import { getApiUrl, setApiUrl } from '../services/storage';
+
+const GOOGLE_APPS_SCRIPT_CODE = `const SHEET_NAME = "รายชื่อลงทะเบียนวัคซีน";
+
+function setupSheetIfNeeded(ss) {
+  let sheet = ss.getSheetByName(SHEET_NAME);
+  if (!sheet) {
+    sheet = ss.insertSheet(SHEET_NAME);
+    sheet.appendRow([
+      "รหัสการจอง", "วัน-เวลาที่ลงทะเบียน", "รายชื่อทั้งหมดในรอบนี้",
+      "คนที่ 1", "คนที่ 2", "คนที่ 3", "คนที่ 4", "คนที่ 5",
+      "จำนวนคน", "ราคาต่อเข็ม (บาท)", "ยอดเงินรวม (บาท)", "Timestamp"
+    ]);
+    const headerRange = sheet.getRange(1, 1, 1, 12);
+    headerRange.setBackground("#0284c7").setFontColor("#ffffff").setFontWeight("bold").setHorizontalAlignment("center");
+    sheet.setFrozenRows(1);
+  }
+  return sheet;
+}
+
+function doGet(e) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = setupSheetIfNeeded(ss);
+    const data = sheet.getDataRange().getValues();
+    if (data.length <= 1) return createJsonResponse({ status: "success", data: [] });
+    
+    const rows = data.slice(1);
+    const records = rows.map((row, idx) => {
+      const namesList = [];
+      for (let i = 3; i <= 7; i++) {
+        if (row[i] && String(row[i]).trim() !== "" && String(row[i]).trim() !== "-") {
+          namesList.push(String(row[i]).trim());
+        }
+      }
+      if (namesList.length === 0 && row[2]) {
+        namesList.push(...String(row[2]).split(",").map(s => s.trim()).filter(s => s.length > 0));
+      }
+      return {
+        id: row[0] || "GI-2569-" + (idx + 1),
+        thaiDateFormatted: row[1] || "",
+        names: namesList,
+        personCount: Number(row[8]) || namesList.length || 1,
+        pricePerDose: Number(row[9]) || 390,
+        totalPrice: Number(row[10]) || (namesList.length * 390),
+        createdAt: row[11] || new Date().toISOString()
+      };
+    }).reverse();
+    return createJsonResponse({ status: "success", data: records });
+  } catch (err) {
+    return createJsonResponse({ status: "error", error: err.toString() });
+  }
+}
+
+function doPost(e) {
+  try {
+    const ss = SpreadsheetApp.getActiveSpreadsheet();
+    const sheet = setupSheetIfNeeded(ss);
+    let body = {};
+    if (e.postData && e.postData.contents) body = JSON.parse(e.postData.contents);
+    else if (e.parameter) body = e.parameter;
+
+    const id = body.id || "GI-2569-" + new Date().getTime();
+    const thaiDate = body.thaiDateFormatted || "";
+    const names = Array.isArray(body.names) ? body.names : [];
+    const personCount = Number(body.personCount) || names.length || 1;
+    const pricePerDose = Number(body.pricePerDose) || 390;
+    const totalPrice = Number(body.totalPrice) || (personCount * pricePerDose);
+    const createdAt = body.createdAt || new Date().toISOString();
+
+    sheet.appendRow([
+      id, thaiDate, names.join(", "),
+      names[0] || "-", names[1] || "-", names[2] || "-", names[3] || "-", names[4] || "-",
+      personCount, pricePerDose, totalPrice, createdAt
+    ]);
+    return createJsonResponse({ status: "success", message: "Saved successfully", id: id });
+  } catch (err) {
+    return createJsonResponse({ status: "error", error: err.toString() });
+  }
+}
+
+function createJsonResponse(data) {
+  return ContentService.createTextOutput(JSON.stringify(data)).setMimeType(ContentService.MimeType.JSON);
+}`;
 
 interface AdminDashboardProps {
   registrations: RegistrationRecord[];
@@ -48,6 +133,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
   const [showConfigModal, setShowConfigModal] = useState(false);
   const [apiUrlInput, setApiUrlInput] = useState(getApiUrl());
   const [saveSuccessMsg, setSaveSuccessMsg] = useState(false);
+  const [copiedScript, setCopiedScript] = useState(false);
 
   // Search filtering
   const filteredRegistrations = registrations.filter((item) => {
@@ -88,6 +174,12 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     onRefreshCloud();
   };
 
+  const handleCopyScript = () => {
+    navigator.clipboard.writeText(GOOGLE_APPS_SCRIPT_CODE);
+    setCopiedScript(true);
+    setTimeout(() => setCopiedScript(false), 3000);
+  };
+
   return (
     <div className="max-w-7xl mx-auto space-y-6">
       
@@ -121,7 +213,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 ) : (
                   <>
                     <Cloud className="w-3.5 h-3.5 text-amber-600" />
-                    <span>🟡 ตั้งค่า Cloud Database</span>
+                    <span>🟡 ตั้งค่า Cloud Database (Google Sheets)</span>
                   </>
                 )}
                 <Settings className="w-3 h-3 ml-0.5 opacity-70" />
@@ -243,7 +335,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs text-slate-400 hover:text-slate-600"
+                className="absolute inset-y-0 right-0 pr-3 flex items-center text-xs text-slate-400 hover:text-slate-600 cursor-pointer"
               >
                 ล้างคำค้น
               </button>
@@ -402,11 +494,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
       {/* Cloud Configuration Modal */}
       {showConfigModal && (
         <div className="fixed inset-0 z-50 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4">
-          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in duration-200">
+          <div className="bg-white rounded-3xl max-w-xl w-full p-6 sm:p-8 shadow-2xl border border-slate-200 relative animate-in fade-in zoom-in duration-200 max-h-[90vh] overflow-y-auto">
             
             <button
               onClick={() => setShowConfigModal(false)}
-              className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors"
+              className="absolute top-5 right-5 p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
             >
               <X className="w-5 h-5" />
             </button>
@@ -447,14 +539,33 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               )}
 
               {/* Instructions Guide */}
-              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600 space-y-2">
-                <div className="font-bold text-slate-800 flex items-center gap-1.5">
-                  <span>📌 วิธีสร้าง URL ใน Google Sheets (ฟรี 100% ใน 1 นาที):</span>
+              <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs text-slate-600 space-y-3">
+                <div className="font-bold text-slate-800 flex items-center justify-between">
+                  <span>📌 วิธีเชื่อมต่อ Google Sheets ง่ายๆ ใน 1 นาที:</span>
+                  <button
+                    type="button"
+                    onClick={handleCopyScript}
+                    className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[11px] transition-colors cursor-pointer shadow-xs"
+                  >
+                    {copiedScript ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                    <span>{copiedScript ? 'คัดลอกโค้ดแล้ว!' : 'คัดลอกโค้ดสคริปต์'}</span>
+                  </button>
                 </div>
-                <ol className="list-decimal list-inside space-y-1 text-slate-600 pl-1">
-                  <li>เปิด Google Sheets ใหม่ที่ <a href="https://sheets.new" target="_blank" rel="noreferrer" className="text-blue-600 underline font-semibold inline-flex items-center gap-0.5">sheets.new <ExternalLink className="w-3 h-3" /></a></li>
+
+                <ol className="list-decimal list-inside space-y-1.5 text-slate-600 pl-1">
+                  <li>
+                    กดเปิด Google Sheets เปล่า 👉{' '}
+                    <a
+                      href="https://sheets.new"
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-blue-600 font-bold underline inline-flex items-center gap-0.5"
+                    >
+                      sheets.new <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </li>
                   <li>ไปที่เมนู <b>ส่วนขยาย (Extensions) &gt; Apps Script</b></li>
-                  <li>ก๊อปปี้โค้ดจากไฟล์ <code className="bg-slate-200 px-1 rounded text-slate-800">google-sheet-script.js</code> ในโปรเจกต์ไปวาง</li>
+                  <li>กดปุ่มสีฟ้า <b>"คัดลอกโค้ดสคริปต์"</b> ด้านบน แล้วนำไปวางแทนที่โค้ดเดิมทั้งหมด</li>
                   <li>กดปุ่มสีน้ำเงิน <b>Deploy (ทำให้ใช้งานได้) &gt; New deployment</b></li>
                   <li>เลือกประเภทเป็น <b>Web app</b> และเลือกสิทธิ์เข้าถึงเป็น <b>Anyone (ทุกคน)</b></li>
                   <li>คัดลอก URL ที่ได้มาวางในช่องด้านบนนี้แล้วกดบันทึก</li>
@@ -465,14 +576,14 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowConfigModal(false)}
-                  className="w-1/2 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs"
+                  className="w-1/2 py-2.5 rounded-xl border border-slate-300 hover:bg-slate-50 text-slate-700 font-bold text-xs cursor-pointer"
                 >
                   ปิดหน้าต่าง
                 </button>
                 <button
                   type="button"
                   onClick={handleSaveApiUrl}
-                  className="w-1/2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/20"
+                  className="w-1/2 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white font-bold text-xs shadow-md shadow-blue-600/20 cursor-pointer"
                 >
                   บันทึกและเชื่อมต่อ
                 </button>
