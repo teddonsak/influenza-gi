@@ -28,9 +28,11 @@ import { getApiUrl, setApiUrl } from '../services/storage';
 const GOOGLE_APPS_SCRIPT_CODE = `const SHEET_NAME = "รายชื่อลงทะเบียนวัคซีน";
 
 function setupSheetIfNeeded(ss) {
-  let sheet = ss.getSheetByName(SHEET_NAME);
+  const spreadsheet = ss || SpreadsheetApp.getActiveSpreadsheet();
+  if (!spreadsheet) return null;
+  let sheet = spreadsheet.getSheetByName(SHEET_NAME);
   if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME);
+    sheet = spreadsheet.insertSheet(SHEET_NAME);
     sheet.appendRow([
       "รหัสการจอง", "วัน-เวลาที่ลงทะเบียน", "รายชื่อทั้งหมดในรอบนี้",
       "คนที่ 1", "คนที่ 2", "คนที่ 3", "คนที่ 4", "คนที่ 5",
@@ -43,10 +45,15 @@ function setupSheetIfNeeded(ss) {
   return sheet;
 }
 
+function testRun() {
+  const sheet = setupSheetIfNeeded();
+  Logger.log("ตารางพร้อมใช้งาน: " + (sheet ? sheet.getName() : ""));
+}
+
 function doGet(e) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = setupSheetIfNeeded(ss);
+    const sheet = setupSheetIfNeeded();
+    if (!sheet) return createJsonResponse({ status: "error", error: "Spreadsheet not found" });
     const data = sheet.getDataRange().getValues();
     if (data.length <= 1) return createJsonResponse({ status: "success", data: [] });
     

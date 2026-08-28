@@ -9,24 +9,26 @@
  * 2. ไปที่เมนู ส่วนขยาย (Extensions) > Apps Script
  * 3. ลบโค้ดเดิมทั้งหมดออก แล้ววางโค้ดทั้งหมดนี้ลงไป
  * 4. กดปุ่ม "บันทึก" (รูปแผ่นดิสก์)
- * 5. กดปุ่มสีน้ำเงิน "ทำให้ใช้งานได้" (Deploy) > "การทำให้ใช้งานได้รายการใหม่" (New deployment)
+ * 5. กดปุ่มสีน้ำเงินมุมขวาบน "การทำให้ใช้งานได้" (Deploy) > "การทำให้ใช้งานได้รายการใหม่" (New deployment)
  * 6. เลือกประเภทเป็น "เว็บแอป" (Web app)
  *    - คำอธิบาย: influenza-gi API
  *    - ดำเนินการในฐานะ: ตัวฉัน (Me)
  *    - ผู้มีสิทธิ์เข้าถึง: ทุกคน (Anyone)  <--- สำคัญมาก! ต้องเลือก Anyone
  * 7. กดปุ่ม "ทำให้ใช้งานได้" (Deploy) แล้วให้สิทธิ์การเข้าถึง (Authorize access)
  * 8. คัดลอก "URL ของเว็บแอป" (ขึ้นต้นด้วย https://script.google.com/macros/s/.../exec)
- *    นำไปวางในหน้า Admin ของเว็บแอป influenza-gi หรือส่งให้แอดมินระบบ
+ *    นำไปวางในหน้า Admin ของเว็บแอป influenza-gi
  * =========================================================================
  */
 
 const SHEET_NAME = "รายชื่อลงทะเบียนวัคซีน";
 
 function setupSheetIfNeeded(ss) {
-  let sheet = ss.getSheetByName(SHEET_NAME);
+  const spreadsheet = ss || SpreadsheetApp.getActiveSpreadsheet();
+  if (!spreadsheet) return null;
+  
+  let sheet = spreadsheet.getSheetByName(SHEET_NAME);
   if (!sheet) {
-    sheet = ss.insertSheet(SHEET_NAME);
-    // Header Columns
+    sheet = spreadsheet.insertSheet(SHEET_NAME);
     sheet.appendRow([
       "รหัสการจอง",
       "วัน-เวลาที่ลงทะเบียน",
@@ -42,7 +44,6 @@ function setupSheetIfNeeded(ss) {
       "Timestamp (ISO)"
     ]);
     
-    // Format Header Style
     const headerRange = sheet.getRange(1, 1, 1, 12);
     headerRange.setBackground("#0284c7");
     headerRange.setFontColor("#ffffff");
@@ -53,13 +54,19 @@ function setupSheetIfNeeded(ss) {
   return sheet;
 }
 
+// ฟังก์ชันสำหรับทดสอบรัน
+function testRun() {
+  const sheet = setupSheetIfNeeded();
+  Logger.log("สร้าง/ตรวจสอบตารางสำเร็จ: " + (sheet ? sheet.getName() : ""));
+}
+
 // GET: ดึงข้อมูลการลงทะเบียนทั้งหมดไปแสดงที่หน้า Admin
 function doGet(e) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = setupSheetIfNeeded(ss);
-    const data = sheet.getDataRange().getValues();
+    const sheet = setupSheetIfNeeded();
+    if (!sheet) return createJsonResponse({ status: "error", error: "Spreadsheet not found" });
     
+    const data = sheet.getDataRange().getValues();
     if (data.length <= 1) {
       return createJsonResponse({ status: "success", data: [] });
     }
@@ -96,8 +103,8 @@ function doGet(e) {
 // POST: บันทึกข้อมูลการลงทะเบียนใหม่เมื่อมีคนกดส่งฟอร์ม
 function doPost(e) {
   try {
-    const ss = SpreadsheetApp.getActiveSpreadsheet();
-    const sheet = setupSheetIfNeeded(ss);
+    const sheet = setupSheetIfNeeded();
+    if (!sheet) return createJsonResponse({ status: "error", error: "Spreadsheet not found" });
     
     let body = {};
     if (e.postData && e.postData.contents) {
